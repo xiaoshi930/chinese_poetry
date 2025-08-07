@@ -1,0 +1,7 @@
+update_poetry:
+  name: Update Poetry
+  description: Update the Chinese Poetry sensor with a new random poem.
+  target:
+    entity:
+      integration: chinese_poetry
+      domain: sensor

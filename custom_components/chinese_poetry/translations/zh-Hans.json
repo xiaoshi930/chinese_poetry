@@ -1,0 +1,27 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "中国古诗词",
+        "description": "设置中国古诗词集成",
+        "data": {
+          "scan_interval": "更新间隔（小时）"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "该集成已经配置"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "中国古诗词选项",
+        "description": "修改中国古诗词集成的设置",
+        "data": {
+          "scan_interval": "更新间隔（小时）"
+        }
+      }
+    }
+  }
+}

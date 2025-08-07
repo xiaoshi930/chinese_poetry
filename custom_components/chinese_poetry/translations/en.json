@@ -1,0 +1,27 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Chinese Poetry",
+        "description": "Set up Chinese Poetry integration",
+        "data": {
+          "scan_interval": "Update interval (hours)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This integration is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Chinese Poetry Options",
+        "description": "Modify Chinese Poetry integration settings",
+        "data": {
+          "scan_interval": "Update interval (hours)"
+        }
+      }
+    }
+  }
+}
