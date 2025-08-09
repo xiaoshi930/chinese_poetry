@@ -36,6 +36,8 @@ async def async_setup_entry(
         config_entry.data.get("scan_interval", DEFAULT_SCAN_INTERVAL)
     )
     
+    _LOGGER.info(f"古诗词集成设置，配置的更新间隔: {scan_interval} 小时")
+    
     # 创建传感器实体
     sensor = ChinesePoetry(hass, scan_interval)
     async_add_entities([sensor], True)
@@ -53,9 +55,11 @@ class ChinesePoetry(SensorEntity):
         self._available = True
         self._attrs = {}
         self._scan_interval = scan_interval
+        _LOGGER.info(f"古诗词传感器初始化，设置更新间隔: {self._scan_interval} 小时")
         self._excel_path = os.path.join(os.path.dirname(__file__), "古诗词.xlsx")
         self._poetry_data = None
         self._unsub_interval = None
+        self._last_update = None  # 添加上次更新时间记录
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
@@ -64,11 +68,17 @@ class ChinesePoetry(SensorEntity):
         # 首次加载数据
         await self.hass.async_add_executor_job(self._load_excel_data)
         
-        # 设置定时更新
+        # 记录首次加载时间
+        self._last_update = pd.Timestamp.now()
+        
+        # 设置定时更新 - 确保使用小时作为单位
+        update_interval = timedelta(hours=self._scan_interval)
+        _LOGGER.info(f"古诗词传感器设置更新间隔: {self._scan_interval} 小时 (实际间隔: {update_interval})")
+        
         self._unsub_interval = async_track_time_interval(
             self.hass,
             self._interval_update,
-            timedelta(hours=self._scan_interval)
+            update_interval
         )
 
     async def async_will_remove_from_hass(self) -> None:
@@ -80,7 +90,17 @@ class ChinesePoetry(SensorEntity):
 
     async def _interval_update(self, _=None) -> None:
         """Update state at intervals."""
-        await self.async_update()
+        # 检查是否到达更新时间
+        current_time = pd.Timestamp.now()
+        if self._last_update is not None:
+            elapsed_time = current_time - self._last_update
+            elapsed_hours = elapsed_time.total_seconds() / 3600
+            
+            if elapsed_hours >= self._scan_interval:
+                _LOGGER.info(f"定时更新触发：已过 {elapsed_hours:.2f} 小时，执行更新")
+                await self.async_update()
+            else:
+                _LOGGER.debug(f"定时更新跳过：距离上次更新仅过去 {elapsed_hours:.2f} 小时，设定间隔为 {self._scan_interval} 小时")
 
     async def async_update(self) -> None:
         """Update the sensor state."""
@@ -98,6 +118,17 @@ class ChinesePoetry(SensorEntity):
 
     def _update(self):
         """Update the sensor state."""
+        # 检查是否需要更新
+        current_time = pd.Timestamp.now()
+        if self._last_update is not None:
+            elapsed_time = current_time - self._last_update
+            elapsed_hours = elapsed_time.total_seconds() / 3600
+            
+            # 如果距离上次更新不足设定的时间间隔，则跳过更新
+            if elapsed_hours < self._scan_interval:
+                _LOGGER.debug(f"跳过更新：距离上次更新仅过去 {elapsed_hours:.2f} 小时，设定间隔为 {self._scan_interval} 小时")
+                return
+        
         if self._poetry_data is None or len(self._poetry_data) == 0:
             self._load_excel_data()
             if self._poetry_data is None or len(self._poetry_data) == 0:
@@ -126,6 +157,9 @@ class ChinesePoetry(SensorEntity):
                     ATTR_CONTENT2: content2,
                 }
                 self._available = True
+                
+                # 记录更新时间
+                self._last_update = current_time
                 
                 _LOGGER.debug(f"更新古诗词: {title} - {author}")
             else:
