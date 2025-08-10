@@ -41,6 +41,11 @@ async def async_setup_entry(
     # 创建传感器实体
     sensor = ChinesePoetry(hass, scan_interval)
     async_add_entities([sensor], True)
+    
+    # 存储传感器实例到 hass.data
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+    hass.data[DOMAIN]["sensor"] = sensor
 
 
 class ChinesePoetry(SensorEntity):
@@ -60,6 +65,11 @@ class ChinesePoetry(SensorEntity):
         self._poetry_data = None
         self._unsub_interval = None
         self._last_update = None  # 添加上次更新时间记录
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, "chinese_poetry_device")},
+            "name": "古诗词",
+            "manufacturer": "Chinese Poetry"
+        }
 
     async def async_added_to_hass(self) -> None:
         """Handle entity which will be added."""
@@ -87,6 +97,23 @@ class ChinesePoetry(SensorEntity):
         if self._unsub_interval:
             self._unsub_interval()
             self._unsub_interval = None
+
+    async def _update_data(self) -> None:
+        """Update the sensor data."""
+        _LOGGER.debug("更新古诗词数据")
+        # 加载数据并更新状态
+        await self.hass.async_add_executor_job(self._load_excel_data)
+        self._last_update = pd.Timestamp.now()
+        # 强制更新状态，即使数据未变化
+        self.async_schedule_update_ha_state(force_refresh=True)
+
+    async def force_update(self) -> None:
+        """Force update the sensor data, skipping time interval checks."""
+        _LOGGER.debug("强制更新古诗词数据")
+        # 直接调用 _update 方法，并强制跳过时间间隔检查
+        await self.hass.async_add_executor_job(self._update, True)
+        # 确保状态更新
+        self.async_write_ha_state()
 
     async def _interval_update(self, _=None) -> None:
         """Update state at intervals."""
@@ -116,11 +143,11 @@ class ChinesePoetry(SensorEntity):
             self._available = False
             self._poetry_data = None
 
-    def _update(self):
+    def _update(self, force_update=False):
         """Update the sensor state."""
         # 检查是否需要更新
         current_time = pd.Timestamp.now()
-        if self._last_update is not None:
+        if self._last_update is not None and not force_update:
             elapsed_time = current_time - self._last_update
             elapsed_hours = elapsed_time.total_seconds() / 3600
             
